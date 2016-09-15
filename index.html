@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<title>web game</title>
+	<script src="jquery-3.1.0.min.js"></script>
+	<script src="soundmanager2-jsmin.js"></script>
+
+	<!-- 當DOM讀取完畢執行 -->
+	<script>
+		// 取出整數亂數
+		function getRandomInt(min, max) {
+			return Math.floor(Math.random()*(max - min + 1)) + min;
+		}
+
+		$(function() {
+			var body = $("body");
+			var stage = $("#stage");
+			var player = $("#player");
+			var score = $("#score");
+			var enemy_fall_speed = 5;
+			var enemy_fall_maxspeed = 12;
+			var enemy_wave = 0;
+			var enemy_wave_gap = 250;
+			var hit_text_r = 20;
+			var can_control_player = true;
+			var scores = 0;
+			var scores_add = 1;
+			var loop;
+			var speedup;
+			var mySound;
+
+			// 左鍵點擊
+			body.click(function(){
+				if(can_control_player){
+					var x = parseInt(player.css("left"));
+					if (x > 10) 
+						player.css("left",x-100+"px");
+				}
+			});
+
+			// 右鍵點擊
+			body.contextmenu(function(e){
+				e.preventDefault();
+				if(can_control_player){
+					var x = parseInt(player.css("left"));
+					if (x < 210) 
+						player.css("left",x+100+"px");
+				}
+			});
+
+			// retry
+			function initGame(){
+				enemy_fall_speed = 5;
+				enemy_wave = 0;
+				can_control_player = true;
+				scores = 0;
+				scores_add = 1;
+
+				// player 初始位置
+				player.css("left",(stage.width()-player.width())/2 + "px");
+				player.css("top",stage.height()-player.height());
+
+				// score 初始位置 
+				score.css("left",stage.width()-score.width()-5 + "px");
+				score.css("top","5px");
+
+				// 建立障礙
+				createEnemy();
+
+
+				// 計時器重設 
+				loop = setInterval(loop_func,1000/40);
+				speedup = setInterval(speedup_func,1000);
+
+				//聲音撥放
+				mySound.play();
+			}
+
+			soundManager.setup({
+			  onready: function() {
+			    mySound = soundManager.createSound({
+			      id: 'aSound',
+			      url: 'Vindicated.mp3'
+			    });
+			   	initGame();
+			  },
+			});
+
+
+			// 障礙物
+			function createEnemy(){
+				var enemy_pos = [10,110,210];
+				for(var i = 0 ; i < 2; i++)
+				{
+					stage.append("<div class='sprite enemy'></div>");
+					var enemy = stage.find(".enemy:last");
+					enemy.data("wave", enemy_wave);
+					var rand_index = getRandomInt(0 ,enemy_pos.length - 1);
+					var enemy_x = enemy_pos.splice(rand_index,1)[0]; //障礙物起始位置
+					enemy.css("left",enemy_x + "px");
+					enemy.css("top",-(enemy.height()) + "px");
+
+				}
+			}
+
+			//遊戲結束
+			function endGame(){
+				//聲音停止
+				mySound.stop();
+
+
+				// 清除計時器
+				clearInterval(loop);
+				clearInterval(speedup);
+				can_control_player = false;
+
+				// 跳出結束畫面
+				stage.append("<div id='gameover'>RETRY</div>");
+				gameover = $("#gameover");
+				gameover.css({
+					"background":"black",
+					"opacity":"0.7",
+					"width":"100%",
+					"height":"100%",
+					"position":"relative",
+					"color":"white",
+					"line-height":"500px",
+					"text-align":"center",
+					"font-size":"40px"
+
+				})
+				gameover.click(function(){
+					gameover.unbind("click");
+
+					// 清除retry
+					gameover.remove();
+
+
+					// 清空enemy
+					stage.find(".enemy").remove();
+
+					initGame();
+				});
+
+			}
+
+			//計時器(處理落下動畫與碰撞機制)
+			function loop_func(){
+					stage.find(".enemy").each(function(){
+							var enemy_y = parseInt($(this).css("top"));
+							if (enemy_y > enemy_wave_gap && $(this).data("wave") == enemy_wave){
+								enemy_wave++;
+								createEnemy();
+							}
+
+							var px = parseInt(player.css("left"))+player.width()/2;
+							var py = parseInt(player.css("top"))+player.height()/2;
+							var ex = parseInt($(this).css("left"))+$(this).width()/2;
+							var ey = parseInt($(this).css("top"))+$(this).height()/2;
+							var p_e_dist = Math.sqrt(Math.pow(px - ex,2)+Math.pow(py - ey,2));
+
+							if(hit_text_r*2 > p_e_dist){
+								endGame();
+							}
+
+							if (enemy_y > stage.height()){
+								$(this).remove();
+								return;
+							}
+							$(this).css("top", enemy_y+enemy_fall_speed+"px")
+							score.html(scores);
+							scores += scores_add;
+							scores = parseInt(scores);
+					})
+				}
+
+			//每秒增加落下speed
+			function speedup_func(){
+				if (enemy_fall_speed >= enemy_fall_maxspeed){
+					enemy_fall_speed = 12;
+					clearInterval(speedup);
+				}
+				enemy_fall_speed += 0.1;
+				scores_add *=1.01;
+			}
+		});
+
+	</script>
+	<style>
+		body {
+			text-align: center;
+		}
+
+		#stage {
+			display: inline-block;
+			text-align: left;
+			background: url(6075.jpg);
+			background-size: cover;
+			position: relative;
+			top: 50px;
+			width: 300px;
+			height: 500px;
+			overflow: hidden;
+		}
+
+		.sprite {
+			display: inline-block;
+			position: absolute;
+			width: 80px;
+			height: 80px;
+		}
+		
+		#player {
+			background: url(player.png);
+			background-size: cover; 
+		}
+
+		.enemy {
+			background: url(monstre-gluant.png);
+			background-size: cover;
+		}
+		
+		.score {
+			font-size: 30px;
+			color: white;
+			font-weight: bolder;
+			text-align: right;
+			z-index: 999;
+		}
+
+		.intro {
+			float: left;
+			top: 0;
+		}
+	</style>
+</head>
+<body>
+	<div id="stage">
+		<div id="score" class="sprite score">000000</div>
+		<div id="player" class="sprite"></div>
+			
+		</div>
+	</div>
+	<div class="intro">
+		<h1>遊戲說明</h1><br/>
+		在遊戲視窗內點擊左鍵或右鍵來移動史帝夫<br/>
+	</div>
+</body>
+</html>
